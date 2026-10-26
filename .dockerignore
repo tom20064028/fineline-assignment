@@ -4,3 +4,5 @@ dist
 .env
 archive
 coverage
+playwright-report
+test-results

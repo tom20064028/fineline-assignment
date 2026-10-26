@@ -15,5 +15,6 @@
     "sourceMap": true,
     "types": ["node"]
   },
-  "include": ["shared/**/*.ts", "publishing-api/**/*.ts", "source-stub/**/*.ts", "vendor-stub/**/*.ts", "tests/**/*.ts", "vitest.config.ts"]
+  "include": ["shared/**/*.ts", "publishing-api/**/*.ts", "source-stub/**/*.ts", "vendor-stub/**/*.ts", "tests/**/*.ts", "vitest.config.ts", "playwright.config.ts"],
+  "exclude": ["tests/e2e"]
 }

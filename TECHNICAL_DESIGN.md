@@ -27,9 +27,11 @@ Publication starts through `POST /publish`. The worker runs inside the Publishin
 
 ### Frontend behavior
 
+Use separate client-side routes: `/login` for credentials and `/workspace` for publication and job tracking. Initial unauthenticated access, direct workspace navigation, logout, and API `401` responses resolve to `/login`. Successful login opens `/workspace`. The API remains independently protected by bearer authentication. Tokens stay in page memory, so a full refresh requires login again.
+
 Generate one UUID `requestId` per intended submission and reuse it when retrying a lost response. Disable duplicate submission while awaiting `202`. After receiving `jobId`, add or update the corresponding row and fetch its status immediately.
 
-Poll each nonterminal job approximately once per second using the bearer token. Schedule the next request after the previous one finishes, with a timeout to prevent overlapping requests. Display document ID, job ID, creation time, status, and current step. Sort by server `createdAt` descending, using local acceptance time until the first snapshot arrives. Repeated responses must not duplicate or reorder existing jobs.
+Poll each nonterminal job approximately once per second using the bearer token. Schedule the next request after the previous one finishes, with a timeout to prevent overlapping requests. Display document ID, job ID, creation time, status, current step, and Vendor attempt count. A document conflict (`409` with an existing job ID) opens an error dialog explaining that no new publication was started; retain the existing job and its status. Sort by server `createdAt` descending, using local acceptance time until the first snapshot arrives. Repeated responses must not duplicate or reorder existing jobs.
 
 | State | UI behavior |
 | --- | --- |
@@ -146,7 +148,7 @@ Configure one client ID and secret through environment variables. Issue a crypto
 
 Both publication and job lookup require a valid bearer token. Missing, malformed, unknown, or expired tokens return `401` and perform no workflow work.
 
-The frontend collects credentials at runtime, clears the secret field after login, and holds the token only in memory. Do not bundle credentials or persist them in browser storage. Jobs continue when the initiating token expires. User management, refresh tokens, roles, and a full OAuth authorization server are excluded.
+The login page collects credentials at runtime, clears the secret field after submission, and holds the token only in memory. Do not bundle credentials or persist them in browser storage. Jobs continue when the initiating token expires. User management, refresh tokens, roles, and a full OAuth authorization server are excluded.
 
 ## 9 Archive and deletion safety
 

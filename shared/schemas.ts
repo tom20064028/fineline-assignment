@@ -32,3 +32,16 @@ export const deliverySchema = z.object({
 });
 export const receiptSchema = z.object({ receiptId: z.string().min(1).max(255) });
 export const logLevelSchema = z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']);
+const errorDetailSchema = z.object({ code: z.string(), message: z.string() });
+export const jobStepSchema = z.enum(['queued', 'fetching', 'archiving', 'linking', 'deleting', 'delivering', 'reporting']);
+export const jobSchema = z.object({
+  jobId: identifierSchema, documentId: identifierSchema, requestId: identifierSchema,
+  status: z.enum(['running', 'done', 'failed']), step: jobStepSchema,
+  createdAt: z.iso.datetime(), updatedAt: z.iso.datetime(), completedAt: z.iso.datetime().optional(),
+  vendorAttempts: z.number().int().nonnegative(), deliveryOutcome: z.enum(['not_sent', 'delivered', 'unknown']),
+  sourceStatusWritten: z.boolean(), error: errorDetailSchema.optional(), reportingError: errorDetailSchema.optional(),
+});
+export const tokenResponseSchema = z.object({
+  access_token: z.string().min(1), token_type: z.literal('Bearer'), expires_in: z.number().positive(),
+});
+export const publishResponseSchema = z.object({ jobId: identifierSchema });
