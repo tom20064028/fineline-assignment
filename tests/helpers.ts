@@ -13,6 +13,10 @@ import { sourceClient, vendorClient } from '../publishing-api/src/clients.js';
 import { JobStore } from '../publishing-api/src/jobs.js';
 import { PublishingWorker, type WorkerOptions } from '../publishing-api/src/worker.js';
 import { id, object } from '../shared/validation.js';
+import { createLogger } from '../shared/logger.js';
+import type { Logger } from 'pino';
+
+export const silentLogger = createLogger('test', undefined, 'silent');
 
 export async function acceptance(response: Response): Promise<{ jobId: string }> {
   return { jobId: id(object(await response.json()).jobId) };
@@ -50,6 +54,7 @@ export async function until(condition: () => boolean | Promise<boolean>): Promis
 }
 
 export interface HarnessOptions {
+  logger?: Logger;
   source?: SourceOptions;
   vendor?: VendorOptions;
   archive?: (local: LocalArchive) => ArchiveStorage;
@@ -61,8 +66,9 @@ export interface HarnessOptions {
 
 export async function harness(options: HarnessOptions = {}) {
   const root = await mkdtemp(join(tmpdir(), 'publishing-test-'));
-  const source = createSourceStub(options.source);
-  const vendor = createVendorStub({ failureRate: 0, ...options.vendor });
+  const logger = options.logger ?? silentLogger;
+  const source = createSourceStub({ logger, ...options.source });
+  const vendor = createVendorStub({ failureRate: 0, logger, ...options.vendor });
   const sourceServer = await listen(source.app);
   const vendorServer = await listen(vendor.app);
   const local = new LocalArchive(root);
@@ -70,9 +76,9 @@ export async function harness(options: HarnessOptions = {}) {
   const tokens = new TokenService('test-client', 'test-secret', options.now);
   const waits: number[] = [];
   const worker = new PublishingWorker(jobs, sourceClient(sourceServer.url, options.timeoutMs), vendorClient(vendorServer.url, options.timeoutMs), options.archive?.(local) ?? local, {
-    delay: async (ms) => { waits.push(ms); }, random: () => 0, ...options.worker,
+    delay: async (ms) => { waits.push(ms); }, random: () => 0, logger, ...options.worker,
   });
-  const api = await listen(createPublishingApp(tokens, jobs, worker));
+  const api = await listen(createPublishingApp(tokens, jobs, worker, logger));
   const token = tokens.issue('test-client', 'test-secret').access_token;
   const request = (path: string, init: RequestInit = {}) => fetch(`${api.url}${path}`, {
     ...init, headers: { Authorization: `Bearer ${token}`, ...init.headers },

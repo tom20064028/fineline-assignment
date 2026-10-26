@@ -198,4 +198,30 @@ describe('publishing workflow over HTTP', () => {
     expect((await h.publish('DOC002', 'REQ002')).status).toBe(503);
     expect(await (await h.publish()).json()).toEqual({ jobId });
   });
+
+  it('a reporting HTTP timeout does not release the worker for the next queued job', async () => {
+    const statusGate = gate();
+    const retryGate = gate();
+    const h = await setup({
+      timeoutMs: 100,
+      source: { before: (operation, documentId) => operation === 'status' && documentId === 'DOC001' ? statusGate.promise : undefined },
+      worker: { delay: async (_ms, signal) => {
+        signal.throwIfAborted();
+        await Promise.race([retryGate.promise, new Promise<void>((resolve) => signal.addEventListener('abort', () => resolve(), { once: true }))]);
+      } },
+    });
+    try {
+      const first = await acceptance(await h.publish());
+      await until(() => !!h.jobs.get(first.jobId).reportingError);
+      expect(h.jobs.get(first.jobId)).toMatchObject({ status: 'running', step: 'reporting', reportingError: { code: 'SOURCE_NETWORK_ERROR' } });
+      const second = await acceptance(await h.publish('DOC002', 'REQ002'));
+      expect(h.jobs.get(second.jobId)).toMatchObject({ status: 'running', step: 'queued' });
+      expect(h.source.events.some((event) => event.documentId === 'DOC002')).toBe(false);
+      statusGate.release();
+      retryGate.release();
+      expect((await h.complete(first.jobId)).status).toBe('done');
+      expect((await h.complete(second.jobId)).status).toBe('done');
+      expect(h.vendor.requests.filter((request) => request.delivery.documentId === 'DOC001')).toHaveLength(1);
+    } finally { statusGate.release(); retryGate.release(); }
+  });
 });

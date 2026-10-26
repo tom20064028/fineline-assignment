@@ -1,4 +1,8 @@
-import { port, serve } from '../../shared/runtime.js';
+import { serve } from '../../shared/runtime.js';
+import { readSourceConfig } from '../../shared/config.js';
+import { createLogger } from '../../shared/logger.js';
 import { createSourceStub } from './app.js';
 
-serve(createSourceStub().app, port(process.env.SOURCE_PORT, 3002), 'Source stub');
+const config = readSourceConfig();
+const logger = createLogger('source-stub', undefined, config.LOG_LEVEL);
+serve(createSourceStub({ logger }).app, config.SOURCE_PORT, 'source-stub', undefined, logger);

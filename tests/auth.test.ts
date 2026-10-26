@@ -67,4 +67,17 @@ describe('authentication and request validation', () => {
     expect(response.status).toBe(413);
     expect(h.source.events).toHaveLength(0);
   });
+
+  it('does not expose invalid credentials in schema validation errors', async () => {
+    const h = await harness(); close = h.close;
+    const secret = 'sensitive-invalid-credential'.repeat(100);
+    const response = await fetch(`${h.api.url}/oauth/token`, {
+      method: 'POST', body: new URLSearchParams({ client_id: 'test-client', client_secret: secret }),
+    });
+    expect(response.status).toBe(400);
+    const body = await response.text();
+    expect(body).not.toContain('sensitive-invalid-credential');
+    expect(body).not.toContain('ZodError');
+    expect(h.source.events).toHaveLength(0);
+  });
 });

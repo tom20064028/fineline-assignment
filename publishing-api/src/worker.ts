@@ -1,4 +1,6 @@
 import type { FinalStatus, JobStep } from '../../shared/contracts.js';
+import type { Logger } from 'pino';
+import { createLogger } from '../../shared/logger.js';
 import { RemoteError, errorDetail } from '../../shared/errors.js';
 import type { ArchiveStorage } from './archive.js';
 import type { SourceClient, VendorClient } from './clients.js';
@@ -6,6 +8,7 @@ import { JobStore } from './jobs.js';
 import { backoff, delay, retry, type Delay } from './retry.js';
 
 export interface WorkerOptions {
+  logger?: Logger;
   delay?: Delay;
   random?: () => number;
   now?: () => number;
@@ -20,6 +23,7 @@ export class PublishingWorker {
   private readonly wait: Delay;
   private readonly random: () => number;
   private readonly now: () => number;
+  private readonly logger: Logger;
 
   constructor(
     private readonly jobs: JobStore,
@@ -31,6 +35,7 @@ export class PublishingWorker {
     this.wait = options.delay ?? delay;
     this.random = options.random ?? Math.random;
     this.now = options.now ?? Date.now;
+    this.logger = options.logger ?? createLogger('publishing-api');
   }
 
   get isAccepting(): boolean { return this.accepting; }
@@ -49,7 +54,8 @@ export class PublishingWorker {
       .catch((error: unknown) => {
         if (!this.controller.signal.aborted) {
           this.accepting = false;
-          (this.options.onFatal ?? console.error)(error);
+          this.logger.error({ event: 'worker_error', error: errorDetail(error) }, 'Worker stopped accepting publications');
+          this.options.onFatal?.(error);
         }
       })
       .finally(() => { this.task = undefined; });
@@ -68,9 +74,14 @@ export class PublishingWorker {
   private async process(jobId: string): Promise<void> {
     const signal = this.controller.signal;
     const job = this.jobs.get(jobId);
-    const step = (value: JobStep) => this.jobs.update(jobId, { step: value });
+    const log = this.logger.child({ jobId, documentId: job.documentId, requestId: job.requestId });
+    const step = (value: JobStep) => {
+      this.jobs.update(jobId, { step: value });
+      log.info({ event: 'job_step', step: value }, 'Publication step started');
+    };
     const attempt = <T>(operation: () => Promise<T>, attempts = 3) => retry(operation, {
       attempts, signal, delay: this.wait, random: this.random,
+      onRetry: (details) => log.warn({ event: 'operation_retry', step: this.jobs.get(jobId).step, ...details }, 'Retrying upstream operation'),
     });
     let outcome: FinalStatus = { jobId, status: 'Published' };
     try {
@@ -105,6 +116,7 @@ export class PublishingWorker {
       if (signal.aborted) return;
       const detail = errorDetail(error);
       this.jobs.update(jobId, { error: detail });
+      log.warn({ event: 'publication_error', step: this.jobs.get(jobId).step, error: detail }, 'Publication processing failed');
       outcome = { jobId, status: 'Error', message: detail.message };
     }
 
@@ -117,12 +129,14 @@ export class PublishingWorker {
           status: outcome.status === 'Published' ? 'done' : 'failed', sourceStatusWritten: true,
           completedAt: new Date(this.now()).toISOString(),
         });
+        log.info({ event: 'job_completed', status: outcome.status === 'Published' ? 'done' : 'failed', vendorAttempts: this.jobs.get(jobId).vendorAttempts }, 'Final Source status acknowledged');
         return;
       } catch (error) {
         if (signal.aborted) return;
         this.jobs.update(jobId, { reportingError: errorDetail(error) });
         const transient = error instanceof RemoteError && error.retryable;
         const waitMs = transient ? Math.max(backoff(attempt, this.random, 30_000), Math.min(30_000, error.retryAfterMs)) : 30_000;
+        log.warn({ event: 'reporting_retry', attempt, delayMs: waitMs, error: errorDetail(error) }, 'Waiting to write final Source status');
         try { await this.wait(waitMs, signal); }
         catch (delayError) { if (signal.aborted) return; throw delayError; }
       }

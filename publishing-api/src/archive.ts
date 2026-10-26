@@ -3,7 +3,8 @@ import { join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { ArchiveRecord, DocumentFile } from '../../shared/contracts.js';
 import { AppError } from '../../shared/errors.js';
-import { decodeFile, hash, id } from '../../shared/validation.js';
+import { decodeFile, hash, id, parse } from '../../shared/validation.js';
+import { archiveRecordSchema } from '../../shared/schemas.js';
 
 export interface ArchiveStorage {
   save(jobId: string, file: DocumentFile): Promise<ArchiveRecord>;
@@ -30,17 +31,17 @@ export class LocalArchive implements ArchiveStorage {
 
   async save(jobId: string, file: DocumentFile): Promise<ArchiveRecord> {
     const bytes = decodeFile(file.contentBase64);
-    const record: ArchiveRecord = {
+    const record = parse(archiveRecordSchema, {
       archiveUri: `archive:/${jobId}/document.bin`, filename: file.filename, contentType: file.contentType,
       sizeBytes: bytes.length, sha256: hash(bytes),
-    };
+    });
     const directory = this.directory(jobId);
     try {
       await mkdir(this.root, { recursive: true, mode: 0o700 });
       try { await mkdir(directory, { mode: 0o700 }); }
       catch (error) {
         if (!error || typeof error !== 'object' || !('code' in error) || error.code !== 'EEXIST') throw error;
-        const existing: unknown = JSON.parse(await readFile(join(directory, 'metadata.json'), 'utf8'));
+        const existing = parse(archiveRecordSchema, JSON.parse(await readFile(join(directory, 'metadata.json'), 'utf8')) as unknown);
         if (JSON.stringify(existing) !== JSON.stringify(record)) throw new Error('Archive conflict.', { cause: error });
         await this.read(jobId, record);
         return record;

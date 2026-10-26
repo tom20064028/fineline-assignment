@@ -1,3 +1,6 @@
+import type { z } from 'zod';
+import type { archiveLinkSchema, archiveRecordSchema, deliverySchema, documentSchema, finalStatusSchema } from './schemas.js';
+
 export interface ErrorDetail { code: string; message: string }
 export type JobStep = 'queued' | 'fetching' | 'archiving' | 'linking' | 'deleting' | 'delivering' | 'reporting';
 export interface Job {
@@ -15,19 +18,8 @@ export interface Job {
   error?: ErrorDetail;
   reportingError?: ErrorDetail;
 }
-export interface DocumentFile {
-  id: string;
-  filename: string;
-  contentType: string;
-  contentBase64: string;
-}
-export interface ArchiveLink { archiveUri: string; sha256: string; sizeBytes: number }
-export interface ArchiveRecord extends ArchiveLink { filename: string; contentType: string }
-export interface FinalStatus { jobId: string; status: 'Published' | 'Error'; message?: string }
-export interface Delivery {
-  documentId: string;
-  filename: string;
-  contentType: string;
-  contentBase64: string;
-  sha256: string;
-}
+export type DocumentFile = z.infer<typeof documentSchema>;
+export type ArchiveLink = z.infer<typeof archiveLinkSchema>;
+export type ArchiveRecord = z.infer<typeof archiveRecordSchema>;
+export type FinalStatus = z.infer<typeof finalStatusSchema>;
+export type Delivery = z.infer<typeof deliverySchema>;

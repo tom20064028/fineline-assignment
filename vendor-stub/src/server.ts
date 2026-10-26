@@ -1,5 +1,8 @@
-import { port, serve } from '../../shared/runtime.js';
+import { serve } from '../../shared/runtime.js';
+import { readVendorConfig } from '../../shared/config.js';
+import { createLogger } from '../../shared/logger.js';
 import { createVendorStub } from './app.js';
 
-const rate = process.env.VENDOR_FAILURE_RATE === undefined ? 0.3 : Number(process.env.VENDOR_FAILURE_RATE);
-serve(createVendorStub({ failureRate: rate }).app, port(process.env.VENDOR_PORT, 3003), 'Vendor stub');
+const config = readVendorConfig();
+const logger = createLogger('vendor-stub', undefined, config.LOG_LEVEL);
+serve(createVendorStub({ failureRate: config.VENDOR_FAILURE_RATE, logger }).app, config.VENDOR_PORT, 'vendor-stub', undefined, logger);

@@ -8,7 +8,7 @@ Phase one implements the Publishing API, background workflow, local archive, and
 publishing-api/src/  routes, tokens, jobs, worker, retry, clients, archive
 source-stub/src/     seeded Source HTTP service
 vendor-stub/src/     Vendor HTTP service with failures and deduplication
-shared/             contracts, validation, HTTP errors, process lifecycle
+shared/             schemas, contracts, validation, config, logging, HTTP errors
 tests/              HTTP integration and unit tests
 scripts/smoke.mjs   authenticated stack smoke test
 frontend/           phase two placeholder
@@ -86,9 +86,19 @@ The worker fetches Source bytes, writes and verifies the archive, records the ar
 
 Vendor retries use four total attempts, exponential backoff, jitter, and one stable idempotency key. The Vendor checks previously accepted keys before applying random failure, so a lost acceptance response cannot create a second receipt. Source operations use three transient attempts. Final status writes retry indefinitely: the job stays `running` at `reporting` until Source acknowledges. This can block the single worker. A final-status error never triggers another Vendor delivery.
 
+The 5-second outbound timeout limits each HTTP attempt. There is no overall job timeout: each failed reporting attempt is followed by another retry, so later jobs stay queued until reporting succeeds or the process shuts down. A job deadline alone cannot both release the worker and satisfy Source acknowledgement; pending reporting would need independent scheduling.
+
 Archive writes use temporary files, file sync, atomic rename, metadata, and size/SHA-256 verification. Source deletion requires successful archive storage and link acknowledgement. Archives are kept for both successful and failed jobs.
 
 Tokens are opaque, expire after 15 minutes, and remain in memory. Protected endpoints authenticate before parsing request bodies. Logs and public errors omit credentials and upstream bodies. Health checks return no business data.
+
+## Validation and logging
+
+Zod schemas in `shared/schemas.ts` validate API contracts and provide inferred TypeScript types. Startup settings are validated in `shared/config.ts`; configuration errors name invalid fields without printing values. Canonical base64, file size, and checksum checks remain explicit archive/delivery guards.
+
+Pino emits JSON logs to stdout; Pino HTTP records method, path, status, duration, and a generated `X-Request-Id`. This transport ID is separate from the publication's idempotency `requestId`. Worker events include `jobId`, `documentId`, and publication `requestId`, allowing API acceptance and background processing to be correlated. Logs exclude request/response bodies, headers, query strings, and raw HTTP errors, with additional redaction for credentials, tokens, and file bytes. Health requests are excluded from automatic logs.
+
+Set `LOG_LEVEL` in `.env` to `trace`, `debug`, `info` (default), `warn`, `error`, `fatal`, or `silent`. Tests inject silent or captured loggers. The queue remains the existing in-process FIFO; `p-queue` is not installed.
 
 ## Verification
 
@@ -110,4 +120,4 @@ Production priorities: durable jobs/idempotency and checkpoints, crash recovery,
 
 ## AI assistance
 
-OpenAI Codex was used to review the assignment, prepare the technical design, implement the phase-one backend and stubs, and write and run verification tests. No other agents were used.
+OpenAI Codex was used to review the assignment, prepare the technical design, implement the phase-one backend and stubs, integrate Zod and Pino, and write and run verification tests.

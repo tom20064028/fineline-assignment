@@ -1,6 +1,7 @@
 import type { ArchiveLink, Delivery, DocumentFile, FinalStatus } from '../../shared/contracts.js';
 import { RemoteError } from '../../shared/errors.js';
-import { documentFile, object, text } from '../../shared/validation.js';
+import { documentFile, parse } from '../../shared/validation.js';
+import { receiptSchema } from '../../shared/schemas.js';
 
 export interface SourceClient {
   getDocument(id: string, signal: AbortSignal): Promise<DocumentFile>;
@@ -83,7 +84,7 @@ export function vendorClient(url: string, timeoutMs = 5000): VendorClient {
   return {
     async deliver(jobId, delivery, signal) {
       const result = await http.request('/deliveries', 'POST', delivery, signal, true, { 'Idempotency-Key': jobId });
-      try { text(object(result).receiptId, 'receiptId'); }
+      try { parse(receiptSchema, result); }
       catch { throw new RemoteError('VENDOR_INVALID_RESPONSE', 'Vendor returned an invalid receipt.', false, true); }
     },
   };

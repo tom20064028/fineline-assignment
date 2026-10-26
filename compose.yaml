@@ -12,6 +12,7 @@ services:
       SOURCE_URL: http://source-stub:3002
       VENDOR_URL: http://vendor-stub:3003
       ARCHIVE_DIR: /archive
+      LOG_LEVEL: ${LOG_LEVEL:-info}
     volumes:
       - archive-data:/archive
     depends_on:
@@ -31,6 +32,8 @@ services:
       context: .
       target: source-stub
     init: true
+    environment:
+      LOG_LEVEL: ${LOG_LEVEL:-info}
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3002/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 5s
@@ -44,6 +47,7 @@ services:
     init: true
     environment:
       VENDOR_FAILURE_RATE: ${VENDOR_FAILURE_RATE:-0.3}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3003/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 5s

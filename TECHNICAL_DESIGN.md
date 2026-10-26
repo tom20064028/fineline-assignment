@@ -12,7 +12,7 @@ Browser → Frontend static server and /api proxy → Publishing API
                                                   └─ Vendor API stub
 ```
 
-Use Express, TypeScript strict mode, native fetch, and Vitest. The frontend uses Vite and vanilla TypeScript. Organize the repository into `publishing-api`, `source-stub`, `vendor-stub`, and `frontend`.
+Use Express, TypeScript strict mode, native fetch, and Vitest. Zod defines shared runtime schemas and inferred contract types; Pino and Pino HTTP provide structured application and request logs. The frontend uses Vite and vanilla TypeScript. Organize the repository into `publishing-api`, `source-stub`, `vendor-stub`, and `frontend`.
 
 Publication starts through `POST /publish`. The worker runs inside the Publishing API process; no database, message broker, or scheduled Source polling is required.
 
@@ -46,7 +46,7 @@ Keep job IDs in page memory; refreshing loses the list. No `GET /jobs` list endp
 
 ## 3 API contracts
 
-Bodies use JSON except the form-encoded token request and bodyless `204` responses. Errors use `{error:{code,message}}`. Validate input at runtime; IDs must match `[A-Za-z0-9_-]{1,128}`. Authenticate protected routes before processing input or creating state. Timestamps use UTC ISO strings.
+Bodies use JSON except the form-encoded token request and bodyless `204` responses. Errors use `{error:{code,message}}`. Zod validates requests, upstream contracts, archive metadata, and startup configuration; raw validation issues and input values are not exposed in errors. IDs must match `[A-Za-z0-9_-]{1,128}`. Authenticate protected routes before processing input or creating state. Timestamps use UTC ISO strings.
 
 ### Publishing API
 
@@ -124,7 +124,11 @@ Use a FIFO queue and one asynchronous worker. Return `202` after local acceptanc
 
 Apply a 5-second timeout to outbound requests and cap retained jobs at 1,000. On shutdown, stop admissions and allow a bounded drain. A job waiting indefinitely for Source reporting blocks this single worker; queued work remains visible until capacity is reached.
 
+The 5-second timeout applies to each HTTP attempt, not to the job as a whole. There is no overall job deadline. A reporting request that times out is retried and continues to occupy the worker. Allowing later jobs to proceed while reporting remains pending would require separate reporting scheduling; this is excluded from the current implementation.
+
 Inject HTTP clients, archive storage, clock, and delay functions for testing.
+
+Pino logs job steps, upstream retries, reporting retries, and terminal outcomes with job, document, and publication request IDs. Pino HTTP generates a separate transport request ID and logs method, path, response status, and duration. Omit bodies, headers, query strings, and raw errors from HTTP logs; configure redaction for secrets, tokens, and file content. Set verbosity through `LOG_LEVEL`; omit routine health requests.
 
 ## 7 Retry strategy
 

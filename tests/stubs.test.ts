@@ -2,14 +2,14 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createSourceStub } from '../source-stub/src/app.js';
 import { createVendorStub } from '../vendor-stub/src/app.js';
 import { hash } from '../shared/validation.js';
-import { listen } from './helpers.js';
+import { listen, silentLogger } from './helpers.js';
 
 const cleanups: (() => Promise<void>)[] = [];
 afterEach(async () => { for (const close of cleanups.splice(0)) await close(); });
 
 describe('stub contracts', () => {
   it('rejects deletion without an archive, allows repeated deletion, and preserves metadata', async () => {
-    const source = createSourceStub();
+    const source = createSourceStub({ logger: silentLogger });
     const server = await listen(source.app); cleanups.push(server.close);
     const url = `${server.url}/documents/DOC001`;
     expect((await fetch(url, { method: 'DELETE' })).status).toBe(409);
@@ -26,7 +26,7 @@ describe('stub contracts', () => {
 
   it('uses the 30 percent threshold and deduplicates before random failure', async () => {
     let random = 0.29;
-    const vendor = createVendorStub({ random: () => random });
+    const vendor = createVendorStub({ random: () => random, logger: silentLogger });
     const server = await listen(vendor.app); cleanups.push(server.close);
     const bytes = Buffer.from('example');
     const payload = { documentId: 'DOC001', filename: 'example.txt', contentType: 'text/plain', contentBase64: bytes.toString('base64'), sha256: hash(bytes) };
