@@ -1,0 +1,54 @@
+services:
+  publishing-api:
+    build:
+      context: .
+      target: publishing-api
+    init: true
+    ports:
+      - "127.0.0.1:${API_PORT:-3001}:3001"
+    environment:
+      CLIENT_ID: ${CLIENT_ID:?Set CLIENT_ID in .env}
+      CLIENT_SECRET: ${CLIENT_SECRET:?Set CLIENT_SECRET in .env}
+      SOURCE_URL: http://source-stub:3002
+      VENDOR_URL: http://vendor-stub:3003
+      ARCHIVE_DIR: /archive
+    volumes:
+      - archive-data:/archive
+    depends_on:
+      source-stub:
+        condition: service_healthy
+      vendor-stub:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    stop_grace_period: 15s
+
+  source-stub:
+    build:
+      context: .
+      target: source-stub
+    init: true
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3002/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  vendor-stub:
+    build:
+      context: .
+      target: vendor-stub
+    init: true
+    environment:
+      VENDOR_FAILURE_RATE: ${VENDOR_FAILURE_RATE:-0.3}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3003/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+volumes:
+  archive-data:

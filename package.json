@@ -1,0 +1,37 @@
+{
+  "name": "document-publishing-service",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "dev:api": "node --env-file-if-exists=.env --import tsx publishing-api/src/server.ts",
+    "dev:source": "node --env-file-if-exists=.env --import tsx source-stub/src/server.ts",
+    "dev:vendor": "node --env-file-if-exists=.env --import tsx vendor-stub/src/server.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "npm run lint && npm run typecheck && npm test && npm run build",
+    "start:api": "node --env-file-if-exists=.env dist/publishing-api/src/server.js",
+    "start:source": "node --env-file-if-exists=.env dist/source-stub/src/server.js",
+    "start:vendor": "node --env-file-if-exists=.env dist/vendor-stub/src/server.js",
+    "smoke": "node --env-file-if-exists=.env scripts/smoke.mjs"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/express": "^5.0.0",
+    "@types/node": "^24.0.0",
+    "eslint": "^10.13.0",
+    "tsx": "^4.20.0",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.46.0",
+    "vitest": "^3.2.4"
+  }
+}

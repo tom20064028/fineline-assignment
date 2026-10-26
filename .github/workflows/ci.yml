@@ -1,0 +1,26 @@
+name: Backend checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CLIENT_ID: ci-client
+      CLIENT_SECRET: ci-local-test-secret
+      VENDOR_FAILURE_RATE: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: docker compose up --build -d --wait --wait-timeout 120
+      - run: npm run smoke
+      - if: failure()
+        run: docker compose logs --no-color
+      - if: always()
+        run: docker compose down -v
