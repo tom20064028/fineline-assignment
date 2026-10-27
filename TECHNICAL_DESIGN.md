@@ -186,9 +186,7 @@ Use Vitest unit tests and HTTP integration tests with isolated temporary archive
 | Frontend | Waiting and error displays, newest-first order, duplicate-row suppression, polling stop/cleanup, no overlapping requests, stale status, `401` resume, and `404` handling. |
 | Compose smoke test | Start stack, login, submit a seeded document, and observe terminal status through HTTP. |
 
-Test the random-failure threshold using an injected random function rather than probabilistic assertions. Keep tests independent of internet access and test order.
-
-Provide opt-in Source fixtures for 1 MiB, 5 MiB, oversize, slow operations, and request timeouts. Verify that a 5 MiB payload is archived and delivered intact, and that oversize rejection retains Source bytes. Normal mode uses only the original fixtures. Both standalone manual testing and Compose testing reuse the same Source fixtures and normal application flow.
+Test the random-failure threshold using an injected random function rather than probabilistic assertions. Keep tests independent of internet access and test order. Generate larger payloads inside integration tests to verify the 5 MiB limit and safe rejection; use injected delays/gates to test waiting without exposing a separate demo environment.
 
 ## 12 Docker Compose
 
@@ -198,8 +196,6 @@ Provide health checks, readiness dependencies, multi-stage builds, non-root runt
 
 `docker compose up --build` starts the stack. Document seeded IDs and that `docker compose down -v` deletes archives.
 
-`compose.testing.yaml` overrides ports to 4180/4181 and enables Source test fixtures. Run with project name `fineline-testing` to isolate the network, containers, and archive volume from the normal stack. Default testing Vendor failure rate is zero for deterministic size/timing checks; permit an explicit testing failure-rate override. No additional services are needed.
-
 Serve Swagger UI at Publishing API `/docs/` and the OpenAPI contract at `/openapi.json`, including form token issuance, bearer authentication, publish conflicts, asynchronous status semantics, and health. Generate component schemas from Zod. Serve assets locally and keep Swagger authorization in page memory. `API_DOCS_ENABLED=false` disables documentation routes; business endpoint authentication is independent.
 
 ## 13 CI
@@ -208,7 +204,7 @@ GitHub Actions runs on pushes and pull requests:
 
 1. Install the selected supported Node LTS and dependencies with `npm ci`.
 2. Run lint, TypeScript checks, tests, and application builds.
-3. Validate Compose configurations and explicitly build all four Docker images.
+3. Validate the Compose configuration and explicitly build all four Docker images.
 4. Start Compose, wait for health with a deadline, and run the authenticated publication smoke test, documentation checks, and browser tests against the containerized frontend.
 5. Upload failure diagnostics (container logs/status, screenshots, traces) and always tear down CI containers and volumes.
 

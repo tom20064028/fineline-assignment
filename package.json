@@ -19,7 +19,6 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "test:manual": "node --import tsx tests/manual/server.ts",
     "check": "npm run lint && npm run typecheck && npm test && npm run build",
     "start:api": "node --env-file-if-exists=.env dist/publishing-api/src/server.js",
     "start:source": "node --env-file-if-exists=.env dist/source-stub/src/server.js",

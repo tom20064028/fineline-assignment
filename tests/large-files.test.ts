@@ -2,11 +2,14 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, it } from 'vitest';
 import { acceptance, harness } from './helpers.js';
-import { manualDocuments } from './manual/documents.js';
 import { MAX_FILE_BYTES } from '../shared/schemas.js';
 
 it('delivers a 5 MiB document intact and rejects an oversized document before deletion', async () => {
-  const h = await harness({ source: { documents: manualDocuments() } });
+  const documents = [
+    { id: 'LARGE_5MB', size: MAX_FILE_BYTES },
+    { id: 'TOO_LARGE', size: MAX_FILE_BYTES + 1 },
+  ].map(({ id, size }) => ({ id, filename: `${id}.bin`, contentType: 'application/octet-stream', contentBase64: Buffer.alloc(size, 0x61).toString('base64') }));
+  const h = await harness({ source: { documents } });
   try {
     const { jobId } = await acceptance(await h.publish('LARGE_5MB', 'large-request'));
     expect((await h.complete(jobId)).status).toBe('done');

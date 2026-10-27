@@ -6,7 +6,7 @@ describe('Zod configuration', () => {
   it('validates and defaults settings for all three services', () => {
     expect(readPublisherConfig(credentials)).toMatchObject({ ...credentials, API_PORT: 3001, ARCHIVE_DIR: './archive', LOG_LEVEL: 'info' });
     expect(readPublisherConfig({ ...credentials, API_PORT: '4321', LOG_LEVEL: 'debug' }).API_PORT).toBe(4321);
-    expect(readSourceConfig({})).toEqual({ SOURCE_PORT: 3002, LOG_LEVEL: 'info', SOURCE_TEST_MODE: false, SOURCE_TEST_DELAY_MS: 2500 });
+    expect(readSourceConfig({})).toEqual({ SOURCE_PORT: 3002, LOG_LEVEL: 'info' });
     expect(readVendorConfig({})).toEqual({ VENDOR_PORT: 3003, VENDOR_FAILURE_RATE: 0.3, LOG_LEVEL: 'info' });
     expect(readVendorConfig({ VENDOR_FAILURE_RATE: '0' }).VENDOR_FAILURE_RATE).toBe(0);
   });
@@ -31,10 +31,7 @@ describe('Zod configuration', () => {
     expect(() => readVendorConfig({ VENDOR_FAILURE_RATE: 'invalid' })).toThrow('VENDOR_FAILURE_RATE');
   });
 
-  it('validates test delays and explicit documentation/test-mode switches', () => {
-    expect(readSourceConfig({ SOURCE_TEST_MODE: 'true', SOURCE_TEST_DELAY_MS: '4000' }).SOURCE_TEST_MODE).toBe(true);
-    expect(() => readSourceConfig({ SOURCE_TEST_DELAY_MS: '5000' })).toThrow('SOURCE_TEST_DELAY_MS');
-    expect(() => readSourceConfig({ SOURCE_TEST_MODE: 'yes' })).toThrow('SOURCE_TEST_MODE');
+  it('validates the documentation switch', () => {
     expect(readPublisherConfig({ ...credentials, API_DOCS_ENABLED: 'false' }).API_DOCS_ENABLED).toBe(false);
     expect(() => readPublisherConfig({ ...credentials, API_DOCS_ENABLED: 'yes' })).toThrow('API_DOCS_ENABLED');
   });
