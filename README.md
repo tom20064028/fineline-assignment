@@ -49,6 +49,7 @@ The frontend polls unfinished jobs about once per second. Tokens and displayed h
 | **One process, FIFO worker and in-memory maps** | Keeps execution and deployment simple within the assignment's scope. Request IDs are checked and registered synchronously before work is queued; asynchronous I/O lets the API serve requests while a job waits. |
 | **Bounded processing retries; unbounded reporting retries** | Limits repeated processing failures: Vendor gets four total attempts with backoff/jitter for transient errors; Source processing calls get three. Reporting retries indefinitely to meet the final-status requirement, without repeating delivery. This accepts blocking later jobs during a reporting outage. |
 | **Verified local filesystem archives** | Temporary writes, file sync, atomic rename, and size/SHA-256 checks implement deletion safety using a local volume. The archive is rechecked immediately before Source deletion. |
+| **No failed-job resubmission** | A failed job may have already deleted Source bytes or have an uncertain Vendor outcome. Rejecting new requests for that document avoids introducing an incomplete recovery flow. Retrying the original request ID still returns its original job; this restriction is stricter than the assignment requires. |
 
 The Vendor's default 30% failure rate applies per new acceptance attempt, so a retried job can still finish as `done`. Each outbound HTTP attempt has a 5-second timeout; there is no overall job deadline.
 
@@ -90,8 +91,9 @@ Open `http://localhost:3000`; Vite proxies `/api` to the publisher. Local archiv
 - **Single worker:** slow jobs delay the queue; final reporting can block it indefinitely. Production needs durable, independently scheduled reporting retries and controlled concurrency.
 - **Local storage:** archives have no automatic retention, replication or disaster recovery. Production would use durable object storage and streaming for larger files.
 - **Demo authentication:** one configured client and in-memory opaque tokens. Production needs managed credentials, authorization, TLS, rate limiting and operational monitoring.
+- **Failure recovery:** jobs retain errors but no separate failure-stage field; `step` advances to reporting. Production needs recorded failure stages and recovery checkpoints to distinguish safe resubmission from archive replay or Vendor reconciliation, while preserving delivery idempotency.
 
-Prioritize durable jobs/idempotency and crash recovery, including Vendor reconciliation after uncertain delivery, before increasing concurrency.
+Prioritize durable jobs/idempotency and recovery checkpoints, then define safe failed-job recovery and Vendor reconciliation before increasing concurrency.
 
 Knowingly omitted: database/message broker integration, manual job redrive, global job history, archive download/retention endpoints, user management, full OAuth compliance, and deployment.
 
