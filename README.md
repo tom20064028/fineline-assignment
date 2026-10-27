@@ -179,7 +179,15 @@ Submit several distinct slow IDs quickly to see FIFO queueing: jobs are `running
 
 Press Ctrl+C to stop and remove temporary archives. Restart the command to restore all fixture documents and clear test jobs; refreshing the browser alone does not restore published Source bytes. `DEMO_PORT` overrides port 4174. Run the automated size/integrity/safe-rejection test with `npx vitest run tests/large-files.test.ts`.
 
-GitHub Actions runs lint, all TypeScript checks, unit/integration tests, and both builds; builds all four Docker images; starts Compose; then runs API smoke and browser tests against the Nginx-served frontend with deterministic Vendor behavior.
+## CI
+
+`.github/workflows/ci.yml` runs on pushes and pull requests and can also be started from GitHub's **Actions → Application CI → Run workflow**. It satisfies the assignment's required dependency installation, tests, and Docker image builds; no deployment or registry publishing is configured.
+
+The job uses Node.js 24 and `npm ci`, then runs lint, TypeScript checks, unit/HTTP integration tests, and backend/frontend builds as separate steps. Tests cover request deduplication, scripted Vendor retries/failure exhaustion, and rejected unauthenticated requests. It validates both Compose configurations and explicitly builds all four Docker images before starting the stack.
+
+Extra full-stack checks run the API smoke test, verify OpenAPI/Swagger endpoints, and run browser tests against the Nginx-served frontend. These use disposable CI credentials and `VENDOR_FAILURE_RATE=0` for predictable results; fault behavior is verified by deterministic integration tests. No `.env` file, GitHub secrets, database, or external account is needed. The smoke test uses `DOC003`, leaving `DOC001` available for browser tests.
+
+On failure, download `ci-failure-diagnostics` from the workflow run to inspect container logs/status, browser screenshots, and retained Playwright traces. Artifacts are retained for seven days. A final step removes the CI project's containers and volumes even if earlier checks fail. The job has a 20-minute limit, and newer runs cancel superseded runs on the same branch or pull request.
 
 ## Limitations and production changes
 

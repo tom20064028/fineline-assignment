@@ -208,9 +208,11 @@ GitHub Actions runs on pushes and pull requests:
 
 1. Install the selected supported Node LTS and dependencies with `npm ci`.
 2. Run lint, TypeScript checks, tests, and application builds.
-3. Build all four Docker images.
-4. Start Compose, wait for health with a deadline, and run the authenticated publication smoke test.
-5. Collect failure logs and always tear down test containers and volumes.
+3. Validate Compose configurations and explicitly build all four Docker images.
+4. Start Compose, wait for health with a deadline, and run the authenticated publication smoke test, documentation checks, and browser tests against the containerized frontend.
+5. Upload failure diagnostics (container logs/status, screenshots, traces) and always tear down CI containers and volumes.
+
+Use disposable CI credentials and deterministic Vendor behavior for stack smoke tests; cover retries and failures using scripted integration tests. Trigger on pushes, pull requests, and manual dispatch, with a bounded job duration and cancellation of superseded runs.
 
 No image publishing or deployment is required.
 

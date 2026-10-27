@@ -1,36 +1,106 @@
-name: Application checks
-on: [push, pull_request]
+name: Application CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
 permissions:
   contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   application:
+    name: Test and build Docker images
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
+      # Disposable CI fixture credentials, independent of local .env or repository secrets.
       CLIENT_ID: ci-client
       CLIENT_SECRET: ci-local-test-secret
+      COMPOSE_PROJECT_NAME: fineline-ci
+      API_PORT: "3001"
+      FRONTEND_PORT: "3000"
+      API_DOCS_ENABLED: "true"
+      # Retry/exhaustion cases use scripted failures in integration tests.
+      # The full-stack smoke/browser run is deterministic.
       VENDOR_FAILURE_RATE: "0"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 24 and npm cache
+        uses: actions/setup-node@v7
         with:
           node-version: "24"
           cache: npm
-      - run: npm ci
-      - run: npm run check
-      - run: npx playwright install --with-deps chromium
-      - run: docker compose -p fineline-testing -f compose.yaml -f compose.testing.yaml config --quiet
-      - run: docker compose up --build -d --wait --wait-timeout 120
-      - run: npm run smoke
-      - run: |
-          curl --fail --silent --show-error --output /dev/null http://127.0.0.1:3001/openapi.json
-          curl --fail --silent --show-error --output /dev/null http://127.0.0.1:3000/api/docs/
-      - run: npm run test:e2e
+
+      - name: Install dependencies from lockfile
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Check TypeScript
+        run: npm run typecheck
+
+      - name: Run unit and HTTP integration tests
+        run: npm test
+
+      - name: Build backend and frontend
+        run: npm run build
+
+      - name: Validate normal and testing Compose configurations
+        run: |
+          docker compose config --quiet
+          docker compose -p fineline-testing -f compose.yaml -f compose.testing.yaml config --quiet
+
+      - name: Build all four Docker images
+        run: docker compose build --pull
+
+      - name: Install Chromium for browser tests
+        run: npx playwright install --with-deps chromium
+
+      - name: Start containers and wait for readiness
+        run: docker compose up --no-build -d --wait --wait-timeout 120
+
+      - name: Smoke test authentication, idempotency and publication
+        run: npm run smoke
+
+      - name: Check OpenAPI and proxied Swagger documentation
+        run: |
+          curl --fail --silent --show-error --max-time 10 --output /dev/null "http://127.0.0.1:${API_PORT}/openapi.json"
+          curl --fail --silent --show-error --max-time 10 --output /dev/null "http://127.0.0.1:${FRONTEND_PORT}/api/docs/"
+
+      - name: Run browser tests against Docker frontend
+        run: npm run test:e2e
         env:
-          E2E_BASE_URL: http://127.0.0.1:3000
-          E2E_CLIENT_ID: ci-client
-          E2E_CLIENT_SECRET: ci-local-test-secret
-      - if: failure()
-        run: docker compose logs --no-color
-      - if: always()
-        run: docker compose down -v
+          E2E_BASE_URL: http://127.0.0.1:${{ env.FRONTEND_PORT }}
+          E2E_CLIENT_ID: ${{ env.CLIENT_ID }}
+          E2E_CLIENT_SECRET: ${{ env.CLIENT_SECRET }}
+
+      - name: Collect container diagnostics on failure
+        if: failure()
+        continue-on-error: true
+        run: |
+          mkdir -p test-results
+          docker compose ps --all > test-results/compose-status.txt
+          docker compose logs --no-color > test-results/compose.log 2>&1
+
+      - name: Upload failure logs, screenshots and Playwright traces
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-failure-diagnostics
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Remove CI containers and archive volume
+        if: always()
+        run: docker compose down --volumes --remove-orphans
