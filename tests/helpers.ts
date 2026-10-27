@@ -54,6 +54,7 @@ export async function until(condition: () => boolean | Promise<boolean>): Promis
 }
 
 export interface HarnessOptions {
+  docsEnabled?: boolean;
   logger?: Logger;
   source?: SourceOptions;
   vendor?: VendorOptions;
@@ -78,7 +79,9 @@ export async function harness(options: HarnessOptions = {}) {
   const worker = new PublishingWorker(jobs, sourceClient(sourceServer.url, options.timeoutMs), vendorClient(vendorServer.url, options.timeoutMs), options.archive?.(local) ?? local, {
     delay: async (ms) => { waits.push(ms); }, random: () => 0, logger, ...options.worker,
   });
-  const api = await listen(createPublishingApp(tokens, jobs, worker, logger));
+  const api = await listen(createPublishingApp(tokens, jobs, worker, logger, {
+    ...(options.docsEnabled === undefined ? {} : { docsEnabled: options.docsEnabled }),
+  }));
   const token = tokens.issue('test-client', 'test-secret').access_token;
   const request = (path: string, init: RequestInit = {}) => fetch(`${api.url}${path}`, {
     ...init, headers: { Authorization: `Bearer ${token}`, ...init.headers },

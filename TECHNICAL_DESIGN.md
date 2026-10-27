@@ -188,6 +188,8 @@ Use Vitest unit tests and HTTP integration tests with isolated temporary archive
 
 Test the random-failure threshold using an injected random function rather than probabilistic assertions. Keep tests independent of internet access and test order.
 
+Provide opt-in Source fixtures for 1 MiB, 5 MiB, oversize, slow operations, and request timeouts. Verify that a 5 MiB payload is archived and delivered intact, and that oversize rejection retains Source bytes. Normal mode uses only the original fixtures. Both standalone manual testing and Compose testing reuse the same Source fixtures and normal application flow.
+
 ## 12 Docker Compose
 
 Run four services: `frontend` exposes localhost port 3000; Publishing API, Source stub, and Vendor stub use internal ports 3001–3003. Frontend proxies `/api`; publisher uses Compose service names. Only publisher mounts `archive-data:/archive`.
@@ -195,6 +197,10 @@ Run four services: `frontend` exposes localhost port 3000; Publishing API, Sourc
 Provide health checks, readiness dependencies, multi-stage builds, non-root runtime users, and a writable archive directory. Store example configuration in `.env.example` and local credentials in ignored `.env`.
 
 `docker compose up --build` starts the stack. Document seeded IDs and that `docker compose down -v` deletes archives.
+
+`compose.testing.yaml` overrides ports to 4180/4181 and enables Source test fixtures. Run with project name `fineline-testing` to isolate the network, containers, and archive volume from the normal stack. Default testing Vendor failure rate is zero for deterministic size/timing checks; permit an explicit testing failure-rate override. No additional services are needed.
+
+Serve Swagger UI at Publishing API `/docs/` and the OpenAPI contract at `/openapi.json`, including form token issuance, bearer authentication, publish conflicts, asynchronous status semantics, and health. Generate component schemas from Zod. Serve assets locally and keep Swagger authorization in page memory. `API_DOCS_ENABLED=false` disables documentation routes; business endpoint authentication is independent.
 
 ## 13 CI
 

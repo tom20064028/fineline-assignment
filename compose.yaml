@@ -27,6 +27,7 @@ services:
       SOURCE_URL: http://source-stub:3002
       VENDOR_URL: http://vendor-stub:3003
       ARCHIVE_DIR: /archive
+      API_DOCS_ENABLED: ${API_DOCS_ENABLED:-true}
       LOG_LEVEL: ${LOG_LEVEL:-info}
     volumes:
       - archive-data:/archive

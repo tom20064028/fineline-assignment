@@ -72,6 +72,12 @@ Status polling starts immediately, then approximately once per second after each
 
 ## HTTP walkthrough
 
+Interactive Swagger UI is available at **http://localhost:3001/docs/** (also through the frontend at `http://localhost:3000/api/docs/`). The API serves `/openapi.json` and all documentation assets locally; no separate service or external validator is used. Request/response schemas come from the runtime Zod schemas.
+
+Expand `POST /oauth/token`, click **Try it out**, enter client credentials and execute. Copy `access_token`, click **Authorize**, and enter the token without the `Bearer` prefix. You can then execute `POST /publish` and `GET /jobs/{id}`. Requests perform real work and use the same authentication, idempotency, deletion, and capacity rules as the workspace. Change `requestId` for a new intended publication; use exactly the same IDs to recover a previous job.
+
+Docs are public by default for local review, while business endpoints remain authenticated. Set `API_DOCS_ENABLED=false` and recreate the API container (or restart the local API) to disable both documentation routes for a production deployment. Swagger authorization is not persisted across page reloads.
+
 The following examples use the credentials from `.env.example`. Change them if you edited `.env`.
 
 ```sh
@@ -135,6 +141,25 @@ npm run test:e2e
 Playwright starts an isolated API/stub stack and the frontend on port 4173, then verifies login, publication, waiting/completion/failure, newest-first sorting, duplicate-row handling, logout, mobile layout, and safe error rendering. To use an existing stack, set `E2E_BASE_URL`, `E2E_CLIENT_ID`, and `E2E_CLIENT_SECRET`. Use a fresh stack for browser tests because documents can only be published once. `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` optionally selects an installed Chrome/Chromium executable.
 
 For manual large-file, slow-job, and timeout testing:
+
+Use the normal containerized workspace with an isolated Compose override (Docker Compose >= 2.24.4):
+
+```sh
+docker compose -p fineline-testing -f compose.yaml -f compose.testing.yaml up --build -d --wait
+```
+
+Open **http://localhost:4180** or **http://localhost:4181/docs/** and sign in with `test-client` / `test-secret`. The override uses separate ports, a separate Compose network, and `fineline-testing_archive-data`, keeping the normal stack on ports 3000/3001 intact. The Source includes normal sample IDs plus the fixtures below. Vendor failures default to zero; `TEST_VENDOR_FAILURE_RATE=0.3` restores random failures. `DEMO_DELAY_MS=4000` slows each `SLOW` job to about 16 seconds. Prefix those environment settings to the same Compose command when starting or updating the testing stack.
+
+To reset in-memory test jobs, tokens, and Source/Vendor fixtures while retaining test archives, stop and restart **all** test services:
+
+```sh
+docker compose -p fineline-testing -f compose.yaml -f compose.testing.yaml down
+docker compose -p fineline-testing -f compose.yaml -f compose.testing.yaml up -d --wait
+```
+
+Add `-v` to that testing stack's `down` command only when you also want to delete its test archives. Use the explicit `-p fineline-testing` on every testing command. Source fixtures are opt-in (`SOURCE_TEST_MODE=true`); normal Compose never enables the artificial delays or additional files. No reset/fault-injection HTTP endpoints or extra UI controls are exposed.
+
+For a lightweight alternative without Docker:
 
 ```sh
 npm run test:manual

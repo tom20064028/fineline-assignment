@@ -19,8 +19,12 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npx playwright install --with-deps chromium
+      - run: docker compose -p fineline-testing -f compose.yaml -f compose.testing.yaml config --quiet
       - run: docker compose up --build -d --wait --wait-timeout 120
       - run: npm run smoke
+      - run: |
+          curl --fail --silent --show-error --output /dev/null http://127.0.0.1:3001/openapi.json
+          curl --fail --silent --show-error --output /dev/null http://127.0.0.1:3000/api/docs/
       - run: npm run test:e2e
         env:
           E2E_BASE_URL: http://127.0.0.1:3000

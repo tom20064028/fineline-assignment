@@ -1,10 +1,10 @@
-import { setTimeout as delay } from 'node:timers/promises';
 import { createServer } from 'vite';
 import { z } from 'zod';
 import { harness } from '../helpers.js';
 import { manualDocuments } from './documents.js';
 import { delay as retryDelay } from '../../publishing-api/src/retry.js';
 import { join } from 'node:path';
+import { testingBefore } from '../../source-stub/src/testing.js';
 
 const config = z.object({
   DEMO_DELAY_MS: z.coerce.number().int().min(0).max(4000).default(2500),
@@ -14,10 +14,7 @@ const config = z.object({
 const h = await harness({
   source: {
     documents: manualDocuments(),
-    before: async (operation, documentId) => {
-      if (documentId.startsWith('SLOW')) await delay(config.DEMO_DELAY_MS);
-      if (documentId === 'TIMEOUT001' && operation === 'fetch') await delay(6000);
-    },
+    before: testingBefore(config.DEMO_DELAY_MS),
   },
   worker: { delay: retryDelay },
 });

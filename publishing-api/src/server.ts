@@ -19,4 +19,4 @@ const jobs = new JobStore();
 const worker = new PublishingWorker(jobs,
   sourceClient(config.SOURCE_URL), vendorClient(config.VENDOR_URL),
   new LocalArchive(archiveDir), { logger });
-serve(createPublishingApp(tokens, jobs, worker, logger), config.API_PORT, 'publishing-api', () => worker.drain(), logger);
+serve(createPublishingApp(tokens, jobs, worker, logger, { docsEnabled: config.API_DOCS_ENABLED }), config.API_PORT, 'publishing-api', () => worker.drain(), logger);

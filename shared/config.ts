@@ -8,14 +8,19 @@ const httpUrlSchema = z.string().url().refine((value) => {
   return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password;
 });
 const sharedConfig = z.object({ LOG_LEVEL: logLevelSchema.default('info') });
+const booleanSetting = z.enum(['true', 'false']).default('false').transform((value) => value === 'true');
 const publisherConfig = sharedConfig.extend({
   CLIENT_ID: z.string().min(1).max(255), CLIENT_SECRET: z.string().min(1).max(1024),
   API_PORT: portSchema.default(3001),
   SOURCE_URL: httpUrlSchema.default('http://127.0.0.1:3002'),
   VENDOR_URL: httpUrlSchema.default('http://127.0.0.1:3003'),
   ARCHIVE_DIR: z.string().min(1).default('./archive'),
+  API_DOCS_ENABLED: z.enum(['true', 'false']).default('true').transform((value) => value === 'true'),
 });
-const sourceConfig = sharedConfig.extend({ SOURCE_PORT: portSchema.default(3002) });
+const sourceConfig = sharedConfig.extend({
+  SOURCE_PORT: portSchema.default(3002), SOURCE_TEST_MODE: booleanSetting,
+  SOURCE_TEST_DELAY_MS: z.coerce.number().int().min(0).max(4000).default(2500),
+});
 const vendorConfig = sharedConfig.extend({
   VENDOR_PORT: portSchema.default(3003),
   VENDOR_FAILURE_RATE: z.coerce.number().min(0).max(1).default(0.3),

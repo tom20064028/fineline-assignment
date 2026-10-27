@@ -1,4 +1,5 @@
 import express from 'express';
+import swaggerUi from 'swagger-ui-express';
 import type { Logger } from 'pino';
 import { baseApp, finishApp } from '../../shared/http.js';
 import { AppError } from '../../shared/errors.js';
@@ -8,9 +9,21 @@ import { createLogger } from '../../shared/logger.js';
 import { TokenService } from './auth.js';
 import { JobStore } from './jobs.js';
 import { PublishingWorker } from './worker.js';
+import { openapi } from './openapi.js';
 
-export function createPublishingApp(tokens: TokenService, jobs: JobStore, worker: PublishingWorker, logger: Logger = createLogger('publishing-api')) {
+export function createPublishingApp(tokens: TokenService, jobs: JobStore, worker: PublishingWorker, logger: Logger = createLogger('publishing-api'), options: { docsEnabled?: boolean } = {}) {
   const app = baseApp(logger, () => worker.isAccepting);
+  if (options.docsEnabled !== false) {
+    app.get('/openapi.json', (_req, res) => res.json(openapi));
+    app.get('/docs', (req, res, next) => {
+      if (!req.path.endsWith('/')) res.redirect('docs/');
+      else next();
+    });
+    app.use('/docs', swaggerUi.serve, swaggerUi.setup(undefined, {
+      customSiteTitle: 'Fineline API docs',
+      swaggerOptions: { url: '../openapi.json', persistAuthorization: false, validatorUrl: null },
+    }));
+  }
   app.post('/oauth/token', express.urlencoded({ extended: false, limit: '4kb' }), (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     if (!req.is('application/x-www-form-urlencoded')) throw new AppError(400, 'INVALID_REQUEST', 'Use form-encoded credentials.');
